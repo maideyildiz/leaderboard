@@ -1,11 +1,18 @@
-const { UUID } = require("mongodb");
 const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema({
-    id: UUID,
-    email: String,
-    score: Number,
-    gameId:Number
+const playerSchema = new mongoose.Schema({
+    id:{
+        type:String,
+        required:[true,"Id is required"]
+    },
+    score:{
+        type:Number,
+        required:[true,"Score is required"]
+    },
+    gameId:{
+        type:String,
+        required:[true,"GameId is required"]
+    }
 });
 
-module.exports = mongoose.model("Players", userSchema);
+module.exports = mongoose.model("Players", playerSchema);
