@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const playerSchema = new mongoose.Schema({
-    id:{
+    userId:{
         type:String,
         required:[true,"Id is required"]
     },

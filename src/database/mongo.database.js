@@ -3,11 +3,6 @@ require('dotenv').config();
 
 const mongoURI = process.env.MONGO_URI;
 
-console.log(`Server running on port ${PORT}`);
-console.log(`MongoDB connected to ${mongoURI}`);
-console.log(`Redis running on ${redisHost}`);
-
-
 const connectMongoDB = async () => {
   try {
     await mongoose.connect(mongoURI, {
