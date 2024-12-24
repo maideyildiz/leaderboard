@@ -1,11 +1,13 @@
 import express from 'express';
 import connectMongoDB from './src/database/Mongo.database.js';
+import { connectRedis } from './src/database/redis.database.js';
 import player from './src/models/player.model.js';
 
 const app = express()
 app.use(express.json())
 
 await connectMongoDB()
+await connectRedis()
 
 
 app.post('/leaderboard/submit-score', async (req, res) => {
