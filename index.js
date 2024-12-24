@@ -11,8 +11,17 @@ await connectMongoDB()
 app.post('/leaderboard/submit-score', async (req, res) => {
   try {
     const {userId,score,gameId}=req.body
-    const playerData=await player.create({userId,score,gameId})
-    res.status(200).json({playerData})
+    const existingPlayer = await player.findOne({ userId, gameId });
+    if (existingPlayer) {
+      if (score > existingPlayer.score) {
+        await player.updateOne({ userId, gameId }, { score });
+      }
+      const playerData = await player.findOne({ userId, gameId });
+      return res.status(200).json({ playerData })
+    } else {
+      const newPlayer = await player.create({ userId, score, gameId });
+      return res.status(200).json({ playerData: newPlayer })
+    }
 
   } catch (error) {
     res.status(500).json({message:error.message})
