@@ -35,6 +35,16 @@ app.get('/leaderboard/top', async (req, res) => {
   }
 });
 
+app.get('/leaderboard/rank', async (req, res) => {
+  try {
+    const userId=req.query?.userId
+    const playerData = await player.find({userId})
+    res.status(200).json({ playerData });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 
 
 app.listen(3000)
