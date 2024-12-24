@@ -19,6 +19,22 @@ app.post('/leaderboard/submit-score', async (req, res) => {
   }
 })
 
+app.get('/leaderboard/top', async (req, res) => {
+  try {
+    console.log(req.params);
+    const { limit, page } = req.query;
+    const offset = (page - 1) * limit;
+    const playerData = await player.find({ })
+      .sort({ score: -1 })
+      .skip(offset)
+      .limit(limit)
+      .exec();
+    res.status(200).json({ playerData });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 
 
 app.listen(3000)

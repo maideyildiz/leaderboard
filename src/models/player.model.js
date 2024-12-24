@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const playerSchema = new mongoose.Schema({
     userId:{
         type:String,
-        required:[true,"Id is required"]
+        required:[true,"Id is required"],
     },
     score:{
         type:Number,
