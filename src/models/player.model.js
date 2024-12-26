@@ -5,6 +5,10 @@ const playerSchema = new mongoose.Schema({
         type:String,
         required:[true,"Id is required"],
     },
+    userName:{
+        type:String,
+        unique:true
+    },
     score:{
         type:Number,
         required:[true,"Score is required"]
