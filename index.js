@@ -73,13 +73,46 @@ async function getPlayerName(userId) {
 
 app.get('/leaderboard/top', async (req, res) => {
   try {
-    const { limit = 10, page = 1 } = req.query
-    const start = (page - 1) * limit
-    const end = start + limit - 1
+    let { limit = 10, page = 1 } = req.query;
 
-    const leaderboard = await redisClient.zRangeWithScores('leaderboard', start, end, { REV: true })
-    const totalPlayers = await redisClient.zCard('leaderboard')
-    const totalPages = Math.ceil(totalPlayers / limit)
+    limit = parseInt(limit);
+    page = parseInt(page);
+
+    if (isNaN(limit) || isNaN(page) || limit <= 0 || page <= 0) {
+      return res.status(400).json({ message: 'Invalid limit or page parameter' });
+    }
+
+    let start = (page - 1) * limit;
+    let end = start + limit - 1;
+
+    console.log(`start: ${start}, end: ${end}, limit: ${limit}, page: ${page}`);
+
+    let leaderboard = await redisClient.zRangeWithScores('leaderboard', start, end, { REV: true });
+
+    if (!leaderboard || leaderboard.length === 0) {
+      const topPlayersFromDB = await player.find().sort({ score: -1 }).limit(limit);
+
+      if (topPlayersFromDB.length > 0) {
+        const redisEntries = topPlayersFromDB.map(player => ({
+          score: player.score,
+          value: player.userId,
+        }));
+
+        await redisClient.zAdd('leaderboard', redisEntries);
+
+        leaderboard = redisEntries;
+      } else {
+        return res.status(404).json({ message: 'No leaderboard data found in the database.' });
+      }
+    }
+
+    const totalPlayers = await redisClient.zCard('leaderboard');
+    if(page > totalPlayers){
+      page=totalPlayers
+      start=(totalPlayers-1)*limit
+      end = start + limit - 1;
+    }
+    const totalPages = Math.ceil(totalPlayers / limit);
 
     const leaderboardWithRank = await Promise.all(
       leaderboard.map(async (entry, index) => {
@@ -95,13 +128,15 @@ app.get('/leaderboard/top', async (req, res) => {
     res.status(200).json({
       leaderboard: leaderboardWithRank,
       total: totalPlayers,
-      currentPage: parseInt(page),
+      currentPage: page,
       totalPages,
-    })
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message })
+    res.status(500).json({ message: error.message });
   }
 });
+
+
 
 
 
