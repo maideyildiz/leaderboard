@@ -8,7 +8,7 @@ app.use(express.json())
 
 await connectMongoDB()
 await connectRedis()
-//await redisClient.flushAll();
+await redisClient.flushAll();
 
 
 app.post('/leaderboard/submit-score', async (req, res) => {
@@ -137,22 +137,38 @@ app.get('/leaderboard/top', async (req, res) => {
 });
 
 
-
-
-
-
 app.get('/leaderboard/rank', async (req, res) => {
   try {
     const userId = req.query?.userId;
     if (!userId) {
-        return res.status(400).json({ message: 'User ID is required' });
+      return res.status(400).json({ message: 'User ID is required' });
     }
-    const playerData = await player.find({ userId });
-    res.status(200).json({ playerData });
+
+    let rank, score;
+
+    const cachedScore = await redisClient.zScore('leaderboard', userId);
+    if (cachedScore !== null) {
+      rank = await redisClient.zRevRank('leaderboard', userId) + 1;
+      score = cachedScore;
+    } else {
+      const playerData = await player.findOne({ userId });
+      if (!playerData) {
+        return res.status(404).json({ message: 'Player not found' });
+      }
+
+      score = playerData.score;
+
+      rank = (await player.countDocuments({ score: { $gt: playerData.score } })) + 1;
+
+      await redisClient.zAdd('leaderboard', { score: playerData.score, value: userId });
+    }
+
+    res.status(200).json({ userId, rank, score });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 
 
