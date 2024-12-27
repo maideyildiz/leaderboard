@@ -20,7 +20,7 @@ const submitScore = async (req, res, next) => {
             let playerUser = await getFromCache("user",userId)
             playerUser= !playerUser ? await getUserByIdFromDb(userId) : playerUser
             if(!playerUser){
-              res.status(404).json({ message: 'User not found' });
+              return res.status(404).json({ message: 'User not found' });
             }
             var addedPlayer = await addPlayerToDb({ gameId, userId, score})
             await addPlayerToUser(playerUser._id,addedPlayer._id)
@@ -130,7 +130,7 @@ const getPlayerRank = async (req, res, next) => {
 
           rank = await getPlayerRankFromDb(playerData.score);
 
-          await setPlayerZScore(playerData.scoreuserId);
+          await setPlayerZScore(playerData.score,userId);
         }
 
         res.status(200).json({ userId, rank, score });
