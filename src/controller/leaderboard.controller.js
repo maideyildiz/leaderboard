@@ -1,5 +1,5 @@
 import player from '../models/player.model.js';
-import { getRank,setPlayerZScore,getPlayerZScore,getFromCache  } from '../helpers/redis.helper.js';
+import { getRank,addPlayerToLeaderboard,addPlayersToLeaderboard,getPlayerZScore,getFromCache,getLeaderboardRange,getLeaderboardCount   } from '../helpers/redis.helper.js';
 import {getUserByIdFromDb} from '../services/user.service.js';
 import { getPlayerByUserIdFromDb,addPlayerToDb,updatePlayerInDb,getPlayerRankFromDb } from '../services/player.service.js';
 const submitScore = async (req, res, next) => {
@@ -30,8 +30,8 @@ const submitScore = async (req, res, next) => {
               await updatePlayerInDb(existingPlayer._id, existingPlayer)
           }
 
-        setPlayerZScore(score, userId)
-        const rank = getRank(userId)
+        await addPlayerToLeaderboard(score, userId)
+        const rank = await getRank(userId)
         res.status(200).json({userId, gameId, score, rank: rank})
 
     } catch (error) {
@@ -55,7 +55,7 @@ const getTopPlayers = async (req, res, next) => {
 
         console.log(`start: ${start}, end: ${end}, limit: ${limit}, page: ${page}`);
 
-        let leaderboard = await redisClient.zRangeWithScores('leaderboard', start, end, { REV: true });
+        let leaderboard = await getLeaderboardRange(start, end);
 
         if (!leaderboard || leaderboard.length === 0) {
           const topPlayersFromDB = await player.find().sort({ score: -1 }).limit(limit);
@@ -66,7 +66,7 @@ const getTopPlayers = async (req, res, next) => {
               value: player.userId,
             }));
 
-            await redisClient.zAdd('leaderboard', redisEntries);
+            await addPlayersToLeaderboard( redisEntries);
 
             leaderboard = redisEntries;
           } else {
@@ -74,7 +74,7 @@ const getTopPlayers = async (req, res, next) => {
           }
         }
 
-        const totalPlayers = await redisClient.zCard('leaderboard');
+        const totalPlayers = await getLeaderboardCount('leaderboard');
         if(page > totalPlayers){
           page=totalPlayers
           start=(totalPlayers-1)*limit

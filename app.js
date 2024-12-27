@@ -1,6 +1,6 @@
 import express from 'express';
 import connectMongoDB from './src/database/Mongo.database.js';
-import { connectRedis } from './src/database/redis.database.js';
+import { connectRedis,redisClient } from './src/database/redis.database.js';
 import { limiter } from './src/middlewares/ratelimit.js';
 import registerRoute from './src/routes/register.route.js';
 import { authenticateToken } from './src/middlewares/authentication.js'; // Yeni middleware
@@ -17,7 +17,7 @@ try {
   console.error('Failed to connect to databases:', error);
   process.exit(1);
 }
-
+//await redisClient.flushAll();
 app.use(express.json());
 app.use(limiter);
 
@@ -32,9 +32,3 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 export default app;
-
-
-
-
-
-//await redisClient.flushAll();
