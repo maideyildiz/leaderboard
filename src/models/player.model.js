@@ -1,21 +1,18 @@
 import mongoose from "mongoose";
 
 const playerSchema = new mongoose.Schema({
-    userId:{
+    gameId:{
         type:String,
-        required:[true,"Id is required"],
+        required:[true,"GameId is required"]
     },
-    userName:{
-        type:String,
-        unique:true
+    userId:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true
     },
     score:{
         type:Number,
         required:[true,"Score is required"]
-    },
-    gameId:{
-        type:String,
-        required:[true,"GameId is required"]
     }
 });
 
