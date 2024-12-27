@@ -1,4 +1,4 @@
-import { Player } from '../models/player.model.js';
+import Player from '../models/player.model.js';
 
 const getPlayerByUserIdFromDb = async (userId) => {
     try {
