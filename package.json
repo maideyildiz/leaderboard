@@ -1,0 +1,36 @@
+{
+  "name": "leaderboard",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "serve": "node index.js",
+    "dev": "nodemon index.js",
+    "start:dev": "docker-compose up -d && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maideyildiz/leaderboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/maideyildiz/leaderboard/issues"
+  },
+  "homepage": "https://github.com/maideyildiz/leaderboard#readme",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.12.0",
+    "mongoose": "^8.9.2",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
