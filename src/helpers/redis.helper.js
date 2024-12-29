@@ -51,18 +51,9 @@ const getRanksByUserId = async (userId) => {
 const getLeaderboardRange = async (key,start, end) => {
     return await redisClient.zRangeWithScores(key, start, end, { REV: true });
 }
-
-const addPlayersToLeaderboard = async (redisEntries) => {
-    await redisClient.zAdd('leaderboard', redisEntries);
-}
-
-const getLeaderboardCount = async () => {
-    return await redisClient.zCard('leaderboard');
-}
-
 const getLeaderboardKeys = async () => {
     return await redisClient.keys('leaderboard:*');
 }
 
 
-export { getPlayerRankByUserIdAndGameId,addPlayerToLeaderboard,addPlayersToLeaderboard,getPlayerZScore,setToCache,getFromCache,getLeaderboardRange,getLeaderboardCount ,getObjectsFromCacheFromKeys,getLeaderboardKeys,getRanksByUserId };
+export { getPlayerRankByUserIdAndGameId,addPlayerToLeaderboard,getPlayerZScore,setToCache,getFromCache,getLeaderboardRange ,getObjectsFromCacheFromKeys,getLeaderboardKeys,getRanksByUserId };

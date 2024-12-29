@@ -1,9 +1,11 @@
 import Player from '../models/player.model.js';
-import { setToCache,getFromCache ,getPlayerZScore ,getLeaderboardRange,addPlayersToLeaderboard,addPlayerToLeaderboard } from '../helpers/redis.helper.js';
+import { setToCache,getFromCache ,getPlayerZScore ,getLeaderboardRange,addPlayerToLeaderboard } from '../helpers/redis.helper.js';
+import { getGameIds } from './game.service.js';
+import { getUserById } from './user.service.js';
 
-const getPlayersByUserId = async (userId) => {
+const getPlayersRanksByUserId = async (userId) => {
     try {
-        const cachedPlayers = await getFromCache(`playersbyuserid - ${userId}`);
+        const cachedPlayers = await getFromCache(`playerranksbyuserid - ${userId}`);
         if (cachedPlayers) {
             return cachedPlayers;
         }
@@ -14,8 +16,24 @@ const getPlayersByUserId = async (userId) => {
             const score = player.score;
             playerRanks[player.gameId] = { userId, rank, score };
         }
-        setToCache(`playersbyuserid - ${userId}`,playerRanks)
+        setToCache(`playerranksbyuserid - ${userId}`,playerRanks)
         return playerRanks;
+
+    } catch (error) {
+        console.error('Error fetching player from DB:', error);
+        return null;
+    }
+}
+
+const getPlayersByUserId = async (userId) => {
+    try {
+        const cachedPlayers = await getFromCache(`playersbyuserid - ${userId}`);
+        if (cachedPlayers) {
+            return cachedPlayers;
+        }
+        const players = await Player.find({ userId });
+        setToCache(`playersbyuserid - ${userId}`,players)
+        return players;
 
     } catch (error) {
         console.error('Error fetching player from DB:', error);
@@ -55,7 +73,7 @@ const addPlayer = async (player) => {
         const newPlayer = new Player(player);
         await newPlayer.save();
         setToCache(`playerbyuseridandgameid - ${newPlayer.userId} - ${newPlayer.gameId}`,newPlayer)
-        //setToCache("playerbyusername",newPlayer.username,newPlayer)
+        await getPlayersByUserId(newPlayer.userId)
         return newPlayer;
     } catch (error) {
         console.error('Error adding player to DB:', error);
@@ -99,16 +117,6 @@ const getPlayerRankByUserId = async (id) => {
         return null;
     }
 }
-
-const getGameIds = async () => {
-    try {
-        const keys = await Player.distinct('gameId');
-        return keys.map(key => `leaderboard:${key}`);
-    } catch (error) {
-        console.error('Error getting leaderboard keys from DB:', error);
-        return null;
-    }
-}
 const getPlayerZScoreByUserId = async (userId) => {
     try {
     const score = await getPlayerZScore(userId);
@@ -123,24 +131,71 @@ const getPlayerZScoreByUserId = async (userId) => {
     }
 }
 
-const getTopPlayerList = async (start,end,limit) => {
+const getTopPlayerList = async (key, start, end, limit) => {
     try {
-    const cachedTopPlayers= await getLeaderboardRange(start,end);
-    if (cachedTopPlayers) {
+      if (limit <= 0) {
+        throw new Error('Limit must be greater than 0');
+      }
+
+      const cachedTopPlayers = await getLeaderboardRange(key, start, end);
+      if (cachedTopPlayers.length>0) {
         return cachedTopPlayers;
-    }
-    const topPlayers = await Player.find().sort({ score: -1 }).limit(limit);
-    const topPlayerEntries = topPlayers.map(player => ({
+      }
+
+      const topPlayers = await Player.find().sort({ score: -1 }).limit(limit);
+      const topPlayerEntries = topPlayers.map((player) => ({
         score: player.score,
         value: player.userId,
       }));
 
-    await addPlayersToLeaderboard(topPlayerEntries);
-    return topPlayerEntries;
+      return topPlayerEntries;
     } catch (error) {
-        console.error('Error getting top players from DB:', error);
-        return null;
+      console.error('Error getting top players from DB:', error);
+      return null;
     }
-}
+  };
 
-export { getPlayerByUserIdAndGameId,addPlayer,updatePlayer,getPlayerRankByUserId ,getPlayerZScoreByUserId,getTopPlayerList,getPlayersByUserId};
+  const getLeaderboardWithRank = async (limit) => {
+    try {
+      const gameIds = await getGameIds();
+      const leaderboardWithRank = {};
+
+      for (const gameId of gameIds) {
+        const gameIdKey = `leaderboard:${gameId}`
+
+        const leaderboard = await getTopPlayerList(
+          gameIdKey,
+          0,
+          limit - 1,
+          limit
+        );
+
+        leaderboardWithRank[gameId] = await Promise.all(
+          leaderboard.map(async (entry, index) => {
+            let username;
+            try {
+              const user = await getUserById(entry.value);
+              username = user ? user.username : 'Unknown User';
+            } catch (error) {
+              console.error(`Error fetching user with ID ${entry.value}:`, error);
+              username = 'Unknown User';
+            }
+            return {
+              rank: index + 1,
+              username: username,
+              score: entry.score,
+            };
+          })
+        );
+      }
+
+      return leaderboardWithRank;
+    } catch (error) {
+      console.error('Error getting leaderboard with ranks:', error);
+      return null;
+    }
+  };
+
+
+
+export { getPlayerByUserIdAndGameId,addPlayer,updatePlayer,getPlayerRankByUserId ,getPlayerZScoreByUserId,getPlayersByUserId,getPlayersRanksByUserId,getLeaderboardWithRank};

@@ -17,7 +17,7 @@ export const ERRORS = {
     INVALID_LIMIT_OR_PAGE:'Invalid limit or page parameter',
     NO_LEADERBOARD_DATA :'No leaderboard data found in the database.',
     USERNAME_REQUIRED :'Username is required.',
-    PLAYER_RANK_NOT_FOUND:'Player rank not found'
+    PLAYER_RANK_NOT_FOUND:'Player rank not found',
 };
 
 export const SUCCESS = {

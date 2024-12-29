@@ -1,6 +1,7 @@
-import { getPlayerRankByUserIdAndGameId ,getLeaderboardKeys ,getLeaderboardRange } from '../helpers/redis.helper.js';
-import {getUserById,addPlayerToUser,updateUser,getUserByUsername} from '../services/user.service.js';
-import { getPlayerByUserIdAndGameId,getPlayersByUserId,addPlayer,updatePlayer} from '../services/player.service.js';
+import { getPlayerRankByUserIdAndGameId  } from '../helpers/redis.helper.js';
+import { getUserById,addPlayerToUser,updateUser,getUserByUsername} from '../services/user.service.js';
+import { getPlayerByUserIdAndGameId,getPlayersRanksByUserId,addPlayer,updatePlayer,getLeaderboardWithRank} from '../services/player.service.js';
+import { getGameIds } from '../services/game.service.js';
 import { ERRORS, SUCCESS } from '../constants/response.js';
 const submitScore = async (req, res, next) => {
     try {
@@ -56,52 +57,32 @@ const submitScore = async (req, res, next) => {
 
 const getTopPlayers = async (req, res, next) => {
   try {
-      let { limit = 3, page = 1 } = req.query;
+    let { limit = 3, page = 1 } = req.query;
 
-      limit = parseInt(limit);
-      page = parseInt(page);
+    limit = parseInt(limit);
+    page = parseInt(page);
 
-      if (isNaN(limit) || isNaN(page) || limit <= 0 || page <= 0) {
-        return res.status(400).json({ message: ERRORS.INVALID_LIMIT_OR_PAGE });
-      }
+    if (isNaN(limit) || isNaN(page) || limit <= 0 || page <= 0) {
+      return res.status(400).json({ message: ERRORS.INVALID_LIMIT_OR_PAGE });
+    }
 
-      const gameIds = await getLeaderboardKeys('leaderboard:*');
+    const gameIds = await getGameIds('leaderboard:*');
+    const totalPlayers = gameIds.length;
 
-      const leaderboardWithRank = {};
+    const leaderboardWithRank = await getLeaderboardWithRank(limit);
 
-      for (const gameIdKey of gameIds) {
-        const gameId = gameIdKey.split(':')[1];
+    const totalPages = Math.ceil(totalPlayers / limit);
 
-        const leaderboard = await getLeaderboardRange(gameIdKey, 0, limit - 1, 'WITHSCORES');
-
-        leaderboardWithRank[gameId] = await Promise.all(
-          leaderboard.map(async (entry, index) => {
-            const user = await getUserById(entry.value);
-            const username = user ? user.username : 'Unknown User';
-            return {
-              rank: index + 1,
-              username: username,
-              score: entry.score,
-            };
-          })
-        );
-      }
-
-      const totalPlayers = gameIds.length;
-      const totalPages = 1;  // Since we are only showing top 3, totalPages would be 1
-
-      res.status(200).json({
-        leaderboard: leaderboardWithRank,
-        total: totalPlayers,
-        currentPage: page,
-        totalPages,
-      });
+    res.status(200).json({
+      leaderboard: leaderboardWithRank,
+      total: totalPlayers,
+      currentPage: page,
+      totalPages,
+    });
   } catch (error) {
-      next(error);
+    next(error);
   }
 };
-
-
 
 const getPlayerRank = async (req, res, next) => {
     try {
@@ -116,7 +97,7 @@ const getPlayerRank = async (req, res, next) => {
           return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
         }
         const userId = rankUser._id
-        const playerData = await getPlayersByUserId(userId);
+        const playerData = await getPlayersRanksByUserId(userId);
         if (!playerData) {
           return res.status(404).json({ message: ERRORS.PLAYER_NOT_FOUND });
         }
