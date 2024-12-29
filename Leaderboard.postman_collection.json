@@ -1,0 +1,211 @@
+{
+	"info": {
+		"_postman_id": "aa7bd6db-b96c-4e75-9977-5c89987c7997",
+		"name": "Leaderboard",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "39461441"
+	},
+	"item": [
+		{
+			"name": "Register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\":\"user55\",\r\n    \"password\": \"user55password\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://leaderboard-production-bfa1.up.railway.app/register",
+					"protocol": "https",
+					"host": [
+						"leaderboard-production-bfa1",
+						"up",
+						"railway",
+						"app"
+					],
+					"path": [
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"\r",
+							"let response = pm.response.json();\r",
+							"\r",
+							"pm.environment.set(\"authToken\", response.token); \r",
+							"\r",
+							"pm.environment.set(\"authToken\", response.token);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\":\"user55\",\r\n    \"password\": \"user5password\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://leaderboard-production-bfa1.up.railway.app/login",
+					"protocol": "https",
+					"host": [
+						"leaderboard-production-bfa1",
+						"up",
+						"railway",
+						"app"
+					],
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Submit Score",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{authToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"score\": 1,\r\n    \"gameId\": \"game2\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://leaderboard-production-bfa1.up.railway.app/leaderboard/submit-score",
+					"protocol": "https",
+					"host": [
+						"leaderboard-production-bfa1",
+						"up",
+						"railway",
+						"app"
+					],
+					"path": [
+						"leaderboard",
+						"submit-score"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Top Players",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{authToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://leaderboard-production-bfa1.up.railway.app/leaderboard/top?limit=4&page=1",
+					"protocol": "https",
+					"host": [
+						"leaderboard-production-bfa1",
+						"up",
+						"railway",
+						"app"
+					],
+					"path": [
+						"leaderboard",
+						"top"
+					],
+					"query": [
+						{
+							"key": "limit",
+							"value": "4"
+						},
+						{
+							"key": "page",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Rank of a User",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{authToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://leaderboard-production-bfa1.up.railway.app/leaderboard/rank?username=user55",
+					"protocol": "https",
+					"host": [
+						"leaderboard-production-bfa1",
+						"up",
+						"railway",
+						"app"
+					],
+					"path": [
+						"leaderboard",
+						"rank"
+					],
+					"query": [
+						{
+							"key": "username",
+							"value": "user55"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
