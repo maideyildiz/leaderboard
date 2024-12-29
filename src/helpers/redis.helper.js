@@ -6,6 +6,12 @@ const getFromCache = async (key,id) => {
     const cachedUser = await redisClient.get(`${key}:${id}`);
     return cachedUser ? JSON.parse(cachedUser) : null;
 }
+
+const getObjectsFromCacheFromKeys = async (key,ids) => {
+    const pipeline = ids.map(id => ['GET', `${key}:${id}`]);
+    const cachedObjects = await redisClient.pipeline(pipeline).exec();
+    return cachedObjects.map(r => r[1] ? JSON.parse(r[1]) : null);
+}
 const setToCache = async (key,id,object) => {
     await redisClient.set(`${key}:${id}`, JSON.stringify(object), 'EX', process.env.CACHE_TTL);
 }
@@ -34,4 +40,4 @@ const getLeaderboardCount = async () => {
 }
 
 
-export { getRank,addPlayerToLeaderboard,addPlayersToLeaderboard,getPlayerZScore,setToCache,getFromCache,getLeaderboardRange,getLeaderboardCount };
+export { getRank,addPlayerToLeaderboard,addPlayersToLeaderboard,getPlayerZScore,setToCache,getFromCache,getLeaderboardRange,getLeaderboardCount ,getObjectsFromCacheFromKeys };

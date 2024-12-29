@@ -1,5 +1,5 @@
 import  User  from '../models/user.model.js';
-import { setToCache,getFromCache,addPlayerToLeaderboard  } from '../helpers/redis.helper.js';
+import { setToCache,getFromCache,addPlayerToLeaderboard ,getObjectsFromCacheFromKeys } from '../helpers/redis.helper.js';
 const getUserById = async (id) => {
     try {
         const cachedUser = await getFromCache("userid",id);
@@ -74,4 +74,18 @@ const addPlayerToUser = async (userId, player) => {
     }
 }
 
-export { getUserById,getUserByUsername,addUser,updateUser ,addPlayerToUser};
+const getUsersByIds = async (ids) => {
+    try {
+        const cachedUsers = await getObjectsFromCacheFromKeys("userid",ids);
+        if (cachedUsers) {
+            return cachedUsers;
+        }
+        const users = await User.find({ _id: { $in: ids } });
+        return users;
+    } catch (error) {
+        console.error('Error getting users by ids:', error);
+        return null;
+    }
+}
+
+export { getUserById,getUserByUsername,addUser,updateUser ,addPlayerToUser,getUsersByIds};

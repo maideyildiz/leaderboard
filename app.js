@@ -7,6 +7,7 @@ import { authenticateToken } from './src/middlewares/authentication.js'; // Yeni
 import loginRoute from './src/routes/login.route.js';
 import leaderboardRoute from './src/routes/leaderboard.route.js';
 import { errorHandler } from './src/middlewares/errorHandler.js';
+import { ERRORS } from './src/constants/response.js';
 
 const app = express();
 
@@ -14,7 +15,7 @@ try {
   await connectMongoDB();
   await connectRedis();
 } catch (error) {
-  console.error('Failed to connect to databases:', error);
+  console.error(ERRORS.FAILED_TO_CONNECT, error);
   process.exit(1);
 }
 //await redisClient.flushAll();
@@ -26,7 +27,7 @@ app.use('/login', loginRoute);
 app.use('/leaderboard', authenticateToken, leaderboardRoute);
 
 app.use((req, res, next) => {
-  res.status(404).json({ message: 'Endpoint not found' });
+  res.status(404).json({ message: ERRORS.ENDPOINT_NOT_FOUND });
 });
 
 app.use(errorHandler);

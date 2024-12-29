@@ -1,5 +1,5 @@
 import Player from '../models/player.model.js';
-import { setToCache,getFromCache,getRank ,getPlayerZScore } from '../helpers/redis.helper.js';
+import { setToCache,getFromCache,getRank ,getPlayerZScore ,getLeaderboardRange,addPlayersToLeaderboard,addPlayerToLeaderboard } from '../helpers/redis.helper.js';
 
 const getPlayerByUserId = async (userId) => {
     try {
@@ -7,7 +7,7 @@ const getPlayerByUserId = async (userId) => {
         if (cachedPlayer) {
             return cachedPlayer;
         }
-        const player = await Player.findById({ userId });
+        const player = await Player.findOne({ userId });
         setToCache("playerbyuserid",userId,player)
         setToCache("playerbyusername",player.username,player)
         return player;
@@ -60,12 +60,37 @@ const getPlayerRankByUserId = async (id) => {
 }
 
 const getPlayerZScoreByUserId = async (userId) => {
+    try {
     const score = await getPlayerZScore(userId);
     if (score) {
         return score;
     }
     const player = await getPlayerByUserId(userId);
     return player.score;
+    } catch (error) {
+        console.error('Error getting player rank from DB:', error);
+        return null;
+    }
 }
 
-export { getPlayerByUserId,addPlayer,updatePlayer,getPlayerRankByUserId ,getPlayerZScoreByUserId};
+const getTopPlayerList = async (start,end,limit) => {
+    try {
+    const cachedTopPlayers= await getLeaderboardRange(start,end);
+    if (cachedTopPlayers) {
+        return cachedTopPlayers;
+    }
+    const topPlayers = await Player.find().sort({ score: -1 }).limit(limit);
+    const topPlayerEntries = topPlayers.map(player => ({
+        score: player.score,
+        value: player.userId,
+      }));
+
+    await addPlayersToLeaderboard(topPlayerEntries);
+    return topPlayerEntries;
+    } catch (error) {
+        console.error('Error getting top players from DB:', error);
+        return null;
+    }
+}
+
+export { getPlayerByUserId,addPlayer,updatePlayer,getPlayerRankByUserId ,getPlayerZScoreByUserId,getTopPlayerList};
