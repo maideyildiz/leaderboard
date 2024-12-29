@@ -101,6 +101,9 @@ const getPlayerRank = async (req, res, next) => {
         if (!playerData) {
           return res.status(404).json({ message: ERRORS.PLAYER_NOT_FOUND });
         }
+        if(playerData.length===0){
+          return res.status(200).json({ message: ERRORS.PLAYER_NOT_FOUND });
+        }
 
         return res.status(200).json(playerData);
     } catch (error) {
