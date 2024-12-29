@@ -1,6 +1,6 @@
-import { getRank,getLeaderboardCount ,addPlayerToLeaderboard  } from '../helpers/redis.helper.js';
+import { getPlayerRankByUserIdAndGameId ,getLeaderboardKeys ,getLeaderboardRange } from '../helpers/redis.helper.js';
 import {getUserById,addPlayerToUser,updateUser,getUserByUsername} from '../services/user.service.js';
-import { getPlayerByUserId,addPlayer,updatePlayer,getPlayerRankByUserId,getPlayerZScoreByUserId ,getTopPlayerList} from '../services/player.service.js';
+import { getPlayerByUserIdAndGameId,getPlayersByUserId,addPlayer,updatePlayer} from '../services/player.service.js';
 import { ERRORS, SUCCESS } from '../constants/response.js';
 const submitScore = async (req, res, next) => {
     try {
@@ -17,14 +17,14 @@ const submitScore = async (req, res, next) => {
             return res.status(400).json({ message: ERRORS.GAME_ID_INVALID });
         }
 
-          const existingPlayer = await getPlayerByUserId(userId )
+          const existingPlayer = await getPlayerByUserIdAndGameId(userId,gameId)
           const playerUser = await getUserById(userId)
           if(!playerUser){
             return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
           }
           if (existingPlayer) {
             if (score <= existingPlayer.score) {
-              return res.status(204).json({ message: ERRORS.SCORE_SAME });
+              return res.status(200).json({ message: SUCCESS.SCORE_SAME });
             }
             else if (score > existingPlayer.score) {
               existingPlayer.score = score
@@ -37,7 +37,7 @@ const submitScore = async (req, res, next) => {
             if(!addedPlayer){
               return res.status(404).json({ message: ERRORS.PLAYER_NOT_FOUND });
             }else {
-              await addPlayerToUser(playerUser._id,addedPlayer)
+              await addPlayerToUser(userId,addedPlayer)
             }
           }
 
@@ -45,16 +45,18 @@ const submitScore = async (req, res, next) => {
           userId,
           gameId,
           score,
-          rank: await getRank(userId),
+          rank: await getPlayerRankByUserIdAndGameId(userId,gameId),
           message: existingPlayer ? SUCCESS.SCORE_UPDATED : SUCCESS.PLAYER_ADDED,
         });
     } catch (error) {
         next(error);
     }
 }
+
+
 const getTopPlayers = async (req, res, next) => {
   try {
-      let { limit = 10, page = 1 } = req.query;
+      let { limit = 3, page = 1 } = req.query;
 
       limit = parseInt(limit);
       page = parseInt(page);
@@ -63,34 +65,30 @@ const getTopPlayers = async (req, res, next) => {
         return res.status(400).json({ message: ERRORS.INVALID_LIMIT_OR_PAGE });
       }
 
-      let start = (page - 1) * limit;
-      let end = start + limit - 1;
+      const gameIds = await getLeaderboardKeys('leaderboard:*');
 
-      let leaderboard = await getTopPlayerList(start, end,limit);
+      const leaderboardWithRank = {};
 
-      if (!leaderboard || leaderboard.length === 0) {
-        return res.status(404).json({ message: ERRORS.NO_LEADERBOARD_DATA });
+      for (const gameIdKey of gameIds) {
+        const gameId = gameIdKey.split(':')[1];
+
+        const leaderboard = await getLeaderboardRange(gameIdKey, 0, limit - 1, 'WITHSCORES');
+
+        leaderboardWithRank[gameId] = await Promise.all(
+          leaderboard.map(async (entry, index) => {
+            const user = await getUserById(entry.value);
+            const username = user ? user.username : 'Unknown User';
+            return {
+              rank: index + 1,
+              username: username,
+              score: entry.score,
+            };
+          })
+        );
       }
 
-      const totalPlayers = await getLeaderboardCount('leaderboard');
-      if(page > totalPlayers){
-        page=totalPlayers
-        start=(totalPlayers-1)*limit
-        end = start + limit - 1;
-      }
-      const totalPages = Math.ceil(totalPlayers / limit);
-
-      const leaderboardWithRank = await Promise.all(
-        leaderboard.map(async (entry, index) => {
-          const user = await getUserById(entry.value);
-          let username = !user ? 'Unknown User' : user.username
-          return {
-            rank: start + index + 1,
-            username: username,
-            score: entry.score,
-          };
-        })
-      );
+      const totalPlayers = gameIds.length;
+      const totalPages = 1;  // Since we are only showing top 3, totalPages would be 1
 
       res.status(200).json({
         leaderboard: leaderboardWithRank,
@@ -101,13 +99,13 @@ const getTopPlayers = async (req, res, next) => {
   } catch (error) {
       next(error);
   }
-}
+};
+
 
 
 const getPlayerRank = async (req, res, next) => {
     try {
         let username = req.query?.username;
-        let rank,score;
 
         if (!username) {
           return res.status(400).json({ message: ERRORS.USERNAME_REQUIRED });
@@ -118,23 +116,12 @@ const getPlayerRank = async (req, res, next) => {
           return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
         }
         const userId = rankUser._id
-        const playerData = await getPlayerByUserId(userId);
+        const playerData = await getPlayersByUserId(userId);
         if (!playerData) {
           return res.status(404).json({ message: ERRORS.PLAYER_NOT_FOUND });
         }
-        const cachedScore = await getPlayerZScoreByUserId(userId);
-        if (!cachedScore) {
-          score = playerData.score
-          await addPlayerToLeaderboard(playerData.score,userId)
-        } else {
-          score = cachedScore;
-        }
-        rank = await getPlayerRankByUserId(userId);
-        if(!rank){
-          return res.status(404).json({ message: ERRORS.PLAYER_RANK_NOT_FOUND });
-        }
 
-        return res.status(200).json({ userId, rank, score });
+        return res.status(200).json(playerData);
     } catch (error) {
         next(error);
     }
