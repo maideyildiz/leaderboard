@@ -32,4 +32,5 @@ export const SUCCESS = {
     PLAYER_FETCHED: 'Player fetched successfully',
     SCORE_SAME :'Score is the same, or less than the existing score. No update made.',
     SCORE_UPDATED :'Score updated' ,
+    NO_PLAYER_DATA:'No player data found for this user in the database.',
 };
