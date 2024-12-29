@@ -20,6 +20,23 @@ services:
     volumes:
       - redis-data:/data
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-leaderboard
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+      - redis
+    environment:
+      MONGO_URI: ${MONGO_URI}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+    env_file:
+      - .env
+
 volumes:
   mongo-data:
   redis-data:

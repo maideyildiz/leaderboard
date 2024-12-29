@@ -3,13 +3,12 @@ import { config } from 'dotenv';
 
 config();
 
-const REDIS_PORT = process.env.REDIS_PORT
-const REDIS_HOST = process.env.REDIS_HOST
-
 const redisClient = Redis.createClient({
-  host: REDIS_HOST,
-  port: REDIS_PORT
-})
+  socket: {
+    host: process.env.REDIS_HOST || "redis",
+    port: process.env.REDIS_PORT || 6379,
+  },
+});
 
 redisClient.on('connect', () => {
   console.log('Connected to Redis');
