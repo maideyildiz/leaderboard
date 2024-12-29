@@ -18,7 +18,13 @@ services:
       - "6379:6379"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+      REDIS_USER: ${REDIS_USER}
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --loadmodule /usr/lib/redis/modules/acl.so
+      --user ${REDIS_USER} password=${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
 

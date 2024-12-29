@@ -7,9 +7,11 @@ const redisClient = Redis.createClient({
   socket: {
     host: process.env.REDIS_HOST || "redis",
     port: process.env.REDIS_PORT || 6379,
-    password: process.env.REDIS_PASSWORD
   },
+  password: process.env.REDIS_PASSWORD,
+  username: process.env.REDIS_USER, // Specify the username for ACL authentication
 });
+
 
 redisClient.on('connect', () => {
   console.log('Connected to Redis');
