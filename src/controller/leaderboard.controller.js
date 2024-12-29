@@ -1,105 +1,53 @@
-import player from '../models/player.model.js';
-import { getRank,addPlayerToLeaderboard,addPlayersToLeaderboard,getPlayerZScore,getFromCache,getLeaderboardRange,getLeaderboardCount   } from '../helpers/redis.helper.js';
-import {getUserByIdFromDb} from '../services/user.service.js';
-import { getPlayerByUserIdFromDb,addPlayerToDb,updatePlayerInDb,getPlayerRankFromDb } from '../services/player.service.js';
+import { getPlayerRankByUserIdAndGameId  } from '../helpers/redis.helper.js';
+import { getUserById,addPlayerToUser,updateUser,getUserByUsername} from '../services/user.service.js';
+import { getPlayerByUserIdAndGameId,getPlayersRanksByUserId,addPlayer,updatePlayer,getLeaderboardWithRank} from '../services/player.service.js';
+import { getGameIds } from '../services/game.service.js';
+import { ERRORS, SUCCESS } from '../constants/response.js';
 const submitScore = async (req, res, next) => {
     try {
         const { score, gameId } = req.body
         let userId=req.baseUserId
 
+        if (!userId) {
+          return res.status(400).json({ message: ERRORS.USER_ID_REQUIRED });
+        }
         if (typeof score !== 'number' || !Number.isInteger(score)) {
-            return res.status(400).json({ message: 'Score should be an integer' });
+            return res.status(400).json({ message: ERRORS.SCORE_INVALID });
         }
         if (typeof gameId !== 'string') {
-            return res.status(400).json({ message: 'GameId should be a string' });
+            return res.status(400).json({ message: ERRORS.GAME_ID_INVALID });
         }
 
-          let existingPlayer = getFromCache("player",userId)
-          existingPlayer = !existingPlayer ? await getPlayerByUserIdFromDb(userId ) : existingPlayer
-          if(!existingPlayer){
-            let playerUser = await getFromCache("user",userId)
-            playerUser= !playerUser ? await getUserByIdFromDb(userId) : playerUser
-            if(!playerUser){
-              return res.status(404).json({ message: 'User not found' });
+          const existingPlayer = await getPlayerByUserIdAndGameId(userId,gameId)
+          const playerUser = await getUserById(userId)
+          if(!playerUser){
+            return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
+          }
+          if (existingPlayer) {
+            if (score <= existingPlayer.score) {
+              return res.status(200).json({ message: SUCCESS.SCORE_SAME });
             }
-            var addedPlayer = await addPlayerToDb({ gameId, userId, score})
-            await addPlayerToUser(playerUser._id,addedPlayer._id)
-          }
-          else if (existingPlayer && score > existingPlayer.score) {
+            else if (score > existingPlayer.score) {
               existingPlayer.score = score
-              await updatePlayerInDb(existingPlayer._id, existingPlayer)
+              await updatePlayer(existingPlayer)
+              await updateUser(playerUser)
+            }
+          }
+          else{
+            var addedPlayer = await addPlayer({ gameId, userId, score})
+            if(!addedPlayer){
+              return res.status(404).json({ message: ERRORS.PLAYER_NOT_FOUND });
+            }else {
+              await addPlayerToUser(userId,addedPlayer)
+            }
           }
 
-        await addPlayerToLeaderboard(score, userId)
-        const rank = await getRank(userId)
-        res.status(200).json({userId, gameId, score, rank: rank})
-
-    } catch (error) {
-        next(error);
-    }
-}
-
-const getTopPlayers = async (req, res, next) => {
-    try {
-        let { limit = 10, page = 1 } = req.query;
-
-        limit = parseInt(limit);
-        page = parseInt(page);
-
-        if (isNaN(limit) || isNaN(page) || limit <= 0 || page <= 0) {
-          return res.status(400).json({ message: 'Invalid limit or page parameter' });
-        }
-
-        let start = (page - 1) * limit;
-        let end = start + limit - 1;
-
-        console.log(`start: ${start}, end: ${end}, limit: ${limit}, page: ${page}`);
-
-        let leaderboard = await getLeaderboardRange(start, end);
-
-        if (!leaderboard || leaderboard.length === 0) {
-          const topPlayersFromDB = await player.find().sort({ score: -1 }).limit(limit);
-
-          if (topPlayersFromDB.length > 0) {
-            const redisEntries = topPlayersFromDB.map(player => ({
-              score: player.score,
-              value: player.userId,
-            }));
-
-            await addPlayersToLeaderboard( redisEntries);
-
-            leaderboard = redisEntries;
-          } else {
-            return res.status(404).json({ message: 'No leaderboard data found in the database.' });
-          }
-        }
-
-        const totalPlayers = await getLeaderboardCount('leaderboard');
-        if(page > totalPlayers){
-          page=totalPlayers
-          start=(totalPlayers-1)*limit
-          end = start + limit - 1;
-        }
-        const totalPages = Math.ceil(totalPlayers / limit);
-
-        const leaderboardWithRank = await Promise.all(
-          leaderboard.map(async (entry, index) => {
-            let user = await getFromCache("user",entry.value);
-            user = !user ? await getUserByIdFromDb(entry.value) : user
-            let userName = !user ? `Unknown User` : user.userName
-            return {
-              rank: start + index + 1,
-              username: userName,
-              score: entry.score,
-            };
-          })
-        );
-
-        res.status(200).json({
-          leaderboard: leaderboardWithRank,
-          total: totalPlayers,
-          currentPage: page,
-          totalPages,
+        return res.status(200).json({
+          userId,
+          gameId,
+          score,
+          rank: await getPlayerRankByUserIdAndGameId(userId,gameId),
+          message: existingPlayer ? SUCCESS.SCORE_UPDATED : SUCCESS.PLAYER_ADDED,
         });
     } catch (error) {
         next(error);
@@ -107,33 +55,54 @@ const getTopPlayers = async (req, res, next) => {
 }
 
 
+const getTopPlayers = async (req, res, next) => {
+  try {
+    let { limit = 3, page = 1 } = req.query;
+
+    limit = parseInt(limit);
+    page = parseInt(page);
+
+    if (isNaN(limit) || isNaN(page) || limit <= 0 || page <= 0) {
+      return res.status(400).json({ message: ERRORS.INVALID_LIMIT_OR_PAGE });
+    }
+
+    const gameIds = await getGameIds('leaderboard:*');
+    const totalPlayers = gameIds.length;
+
+    const leaderboardWithRank = await getLeaderboardWithRank(limit);
+
+    const totalPages = Math.ceil(totalPlayers / limit);
+
+    res.status(200).json({
+      leaderboard: leaderboardWithRank,
+      total: totalPlayers,
+      currentPage: page,
+      totalPages,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getPlayerRank = async (req, res, next) => {
     try {
-        let userId = req.query?.userId;
-        if (!userId) {
-          userId=req.baseUserId
+        let username = req.query?.username;
+
+        if (!username) {
+          return res.status(400).json({ message: ERRORS.USERNAME_REQUIRED });
         }
 
-        let rank, score;
-
-        const cachedScore = await getPlayerZScore( userId);
-        if (cachedScore !== null) {
-          rank = await getRank(userId) + 1;
-          score = cachedScore;
-        } else {
-          const playerData = await getPlayerByUserIdFromDb(userId);
-          if (!playerData) {
-            return res.status(404).json({ message: 'Player not found' });
-          }
-
-          score = playerData.score;
-
-          rank = await getPlayerRankFromDb(playerData.score);
-
-          await setPlayerZScore(playerData.score,userId);
+        const rankUser = await getUserByUsername(username)
+        if (!rankUser) {
+          return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
+        }
+        const userId = rankUser._id
+        const playerData = await getPlayersRanksByUserId(userId);
+        if (!playerData) {
+          return res.status(404).json({ message: ERRORS.PLAYER_NOT_FOUND });
         }
 
-        res.status(200).json({ userId, rank, score });
+        return res.status(200).json(playerData);
     } catch (error) {
         next(error);
     }

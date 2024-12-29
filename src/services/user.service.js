@@ -1,9 +1,16 @@
 import  User  from '../models/user.model.js';
-import { setToCache  } from '../helpers/redis.helper.js';
-const getUserByIdFromDb = async (id) => {
+import { setToCache,getFromCache,addPlayerToLeaderboard } from '../helpers/redis.helper.js';
+const getUserById = async (id) => {
     try {
+        const cachedUser = await getFromCache(`userid - ${id}`);
+        if (cachedUser) {
+            return cachedUser;
+        }
         const user = await User.findById(id);
-        setToCache("user",id,user)
+        if (user) {
+            setToCache(`userid - ${id}`,user)
+            setToCache(`username - ${user.username}`,user)
+        }
         return user;
     } catch (error) {
         console.error('Error fetching user from DB:', error);
@@ -11,11 +18,30 @@ const getUserByIdFromDb = async (id) => {
     }
 }
 
-const addUserToDb = async (user) => {
+const getUserByUsername = async (username) => {
+    try {
+        const cachedUser = await getFromCache(`username - ${username}`);
+        if (cachedUser) {
+            return cachedUser;
+        }
+        const user = await User.findOne({ username })
+        if (user) {
+            setToCache(`userid - ${user._id}`,user)
+            setToCache(`username - ${user.username}`,user)
+        }
+        return user;
+    } catch (error) {
+        console.error('Error fetching user by username from DB:', error);
+        return null;
+    }
+}
+
+const addUser = async (user) => {
     try {
         const newUser = new User(user);
         await newUser.save();
-        setToCache("user",newUser._id,newUser)
+        setToCache(`userid - ${newUser._id}`,newUser)
+        setToCache(`username - ${newUser.username}`,newUser)
         return newUser;
     } catch (error) {
         console.error('Error adding user to DB:', error);
@@ -23,10 +49,11 @@ const addUserToDb = async (user) => {
     }
 }
 
-const updateUserInDb = async (id, user) => {
+const updateUser = async (user) => {
     try {
-        const updatedUser = await User.findByIdAndUpdate(id, user, { new: true });
-        setToCache("user",id,updatedUser)
+        const updatedUser = await User.findByIdAndUpdate(user._id, user, { new: true });
+        setToCache(`userid - ${updatedUser._id}`,updatedUser)
+        setToCache(`username - ${updatedUser.username}`,updatedUser)
         return updatedUser;
     } catch (error) {
         console.error('Error updating user in DB:', error);
@@ -34,17 +61,31 @@ const updateUserInDb = async (id, user) => {
     }
 }
 
-const addPlayerToUser = async (userId, playerId) => {
+const addPlayerToUser = async (userId, player) => {
     try {
-        const user = await User.findById(userId);
-        user.players.push(playerId);
-        await user.save();
-        setToCache("user",userId,user)
+        if (!userId || !player || !player._id) {
+            throw new Error('Invalid userId or player data');
+        }
+
+        const user = await getUserById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (!Array.isArray(user.players)) {
+            user.players = [];
+        }
+
+        user.players.push(player._id);
+
+        await updateUser(user);
+
+        await addPlayerToLeaderboard(player.gameId, player.score, userId);
+
         return user;
     } catch (error) {
         console.error('Error adding player to user:', error);
         return null;
     }
 }
-
-export { getUserByIdFromDb,addUserToDb,updateUserInDb ,addPlayerToUser};
+export { getUserById,getUserByUsername,addUser,updateUser ,addPlayerToUser};
