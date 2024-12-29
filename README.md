@@ -53,6 +53,7 @@ It provides functionalities for user registration, login, and score submission, 
 ### Running the Application
 
 The application will start running at `http://localhost:3000`. Ensure that Docker is running as it is required to start the MongoDB and Redis services.
+
 You can also access the application at [https://leaderboard-production-bfa1.up.railway.app/](https://leaderboard-production-bfa1.up.railway.app/).
 
 ### Testing
