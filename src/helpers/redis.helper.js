@@ -1,11 +1,13 @@
 import {redisClient} from '../database/redis.database.js';
+import { config } from 'dotenv';
+config();
 
 const getFromCache = async (key,id) => {
     const cachedUser = await redisClient.get(`${key}:${id}`);
     return cachedUser ? JSON.parse(cachedUser) : null;
 }
 const setToCache = async (key,id,object) => {
-    await redisClient.set(`${key}:${id}`, JSON.stringify(object));
+    await redisClient.set(`${key}:${id}`, JSON.stringify(object), 'EX', process.env.CACHE_TTL);
 }
 
 const getPlayerZScore = async (userId) => {

@@ -1,8 +1,15 @@
 import Player from '../models/player.model.js';
+import { setToCache,getFromCache,getRank ,getPlayerZScore } from '../helpers/redis.helper.js';
 
-const getPlayerByUserIdFromDb = async (userId) => {
+const getPlayerByUserId = async (userId) => {
     try {
+        const cachedPlayer = await getFromCache("playerbyuserid",userId);
+        if (cachedPlayer) {
+            return cachedPlayer;
+        }
         const player = await Player.findById({ userId });
+        setToCache("playerbyuserid",userId,player)
+        setToCache("playerbyusername",player.username,player)
         return player;
     } catch (error) {
         console.error('Error fetching player from DB:', error);
@@ -10,10 +17,12 @@ const getPlayerByUserIdFromDb = async (userId) => {
     }
 }
 
-const addPlayerToDb = async (player) => {
+const addPlayer = async (player) => {
     try {
         const newPlayer = new Player(player);
         await newPlayer.save();
+        setToCache("playerbyuserid",newPlayer.userId,newPlayer)
+        setToCache("playerbyusername",newPlayer.username,newPlayer)
         return newPlayer;
     } catch (error) {
         console.error('Error adding player to DB:', error);
@@ -21,9 +30,12 @@ const addPlayerToDb = async (player) => {
     }
 }
 
-const updatePlayerInDb = async (id, player) => {
+const updatePlayer = async (player) => {
     try {
-        const updatedPlayer = await Player.findByIdAndUpdate(id, player, { new: true });
+        const updatedPlayer = await Player.findByIdAndUpdate(player._id, player, { new: true });
+        setToCache("playerbyuserid",updatedPlayer.userId,updatedPlayer)
+        setToCache("playerbyusername",updatedPlayer.username,updatedPlayer)
+        await addPlayerToLeaderboard(player.score,player.userId)
         return updatedPlayer;
     } catch (error) {
         console.error('Error updating player in DB:', error);
@@ -31,8 +43,14 @@ const updatePlayerInDb = async (id, player) => {
     }
 }
 
-const getPlayerRankFromDb = async (score) => {
+const getPlayerRankByUserId = async (id) => {
     try {
+        const cachedRank = await getRank(id);
+        if (cachedRank) {
+            return cachedRank;
+        }
+        const player = await getPlayerByUserId(id);
+        const score = player.score;
         const count = await Player.countDocuments({ score: { $gt: score } });
         return count + 1;
     } catch (error) {
@@ -41,4 +59,13 @@ const getPlayerRankFromDb = async (score) => {
     }
 }
 
-export { getPlayerByUserIdFromDb,addPlayerToDb,updatePlayerInDb,getPlayerRankFromDb };
+const getPlayerZScoreByUserId = async (userId) => {
+    const score = await getPlayerZScore(userId);
+    if (score) {
+        return score;
+    }
+    const player = await getPlayerByUserId(userId);
+    return player.score;
+}
+
+export { getPlayerByUserId,addPlayer,updatePlayer,getPlayerRankByUserId ,getPlayerZScoreByUserId};

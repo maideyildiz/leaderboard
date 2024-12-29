@@ -1,7 +1,7 @@
 import player from '../models/player.model.js';
-import { getRank,addPlayerToLeaderboard,addPlayersToLeaderboard,getPlayerZScore,getFromCache,getLeaderboardRange,getLeaderboardCount   } from '../helpers/redis.helper.js';
-import {getUserByIdFromDb} from '../services/user.service.js';
-import { getPlayerByUserIdFromDb,addPlayerToDb,updatePlayerInDb,getPlayerRankFromDb } from '../services/player.service.js';
+import { getRank,addPlayersToLeaderboard,getLeaderboardRange,getLeaderboardCount ,addPlayerToLeaderboard  } from '../helpers/redis.helper.js';
+import {getUserById,addPlayerToUser,updateUser} from '../services/user.service.js';
+import { getPlayerByUserId,addPlayer,updatePlayer,getPlayerRankByUserId,getPlayerZScoreByUserId } from '../services/player.service.js';
 const submitScore = async (req, res, next) => {
     try {
         const { score, gameId } = req.body
@@ -14,23 +14,21 @@ const submitScore = async (req, res, next) => {
             return res.status(400).json({ message: 'GameId should be a string' });
         }
 
-          let existingPlayer = getFromCache("player",userId)
-          existingPlayer = !existingPlayer ? await getPlayerByUserIdFromDb(userId ) : existingPlayer
-          if(!existingPlayer){
-            let playerUser = await getFromCache("user",userId)
-            playerUser= !playerUser ? await getUserByIdFromDb(userId) : playerUser
-            if(!playerUser){
-              return res.status(404).json({ message: 'User not found' });
-            }
-            var addedPlayer = await addPlayerToDb({ gameId, userId, score})
-            await addPlayerToUser(playerUser._id,addedPlayer._id)
+          const existingPlayer = await getPlayerByUserId(userId )
+          const playerUser = await getUserById(userId)
+          if(!playerUser){
+            return res.status(404).json({ message: 'User not found' });
           }
-          else if (existingPlayer && score > existingPlayer.score) {
-              existingPlayer.score = score
-              await updatePlayerInDb(existingPlayer._id, existingPlayer)
+          if (existingPlayer && score > existingPlayer.score) {
+            existingPlayer.score = score
+            await updatePlayer(existingPlayer)
+            await updateUser(playerUser)
+          }
+          else if(!existingPlayer && playerUser){
+            var addedPlayer = await addPlayer({ gameId, userId, score})
+            await addPlayerToUser(playerUser._id,addedPlayer)
           }
 
-        await addPlayerToLeaderboard(score, userId)
         const rank = await getRank(userId)
         res.status(200).json({userId, gameId, score, rank: rank})
 
@@ -84,12 +82,14 @@ const getTopPlayers = async (req, res, next) => {
 
         const leaderboardWithRank = await Promise.all(
           leaderboard.map(async (entry, index) => {
-            let user = await getFromCache("user",entry.value);
-            user = !user ? await getUserByIdFromDb(entry.value) : user
-            let userName = !user ? `Unknown User` : user.userName
+            console.log(entry);
+            console.log(entry.value);
+            console.log(index);
+            const user = await getUserById(entry.value);
+            let username = !user ? `Unknown User` : user.username
             return {
               rank: start + index + 1,
-              username: userName,
+              username: username,
               score: entry.score,
             };
           })
@@ -109,31 +109,36 @@ const getTopPlayers = async (req, res, next) => {
 
 const getPlayerRank = async (req, res, next) => {
     try {
-        let userId = req.query?.userId;
-        if (!userId) {
-          userId=req.baseUserId
-        }
-
+        let username = req.query?.username;
+        let userId = 0;
         let rank, score;
 
-        const cachedScore = await getPlayerZScore( userId);
-        if (cachedScore !== null) {
-          rank = await getRank(userId) + 1;
-          score = cachedScore;
-        } else {
-          const playerData = await getPlayerByUserIdFromDb(userId);
+        if(username){
+          let rankUser = await await getUserByUsername(username)
+          userId = rankUser._id
+        }
+
+        if (userId>0) {
+          const playerData = await getPlayerByUserId(userId);
           if (!playerData) {
             return res.status(404).json({ message: 'Player not found' });
           }
+          const cachedScore = await getPlayerZScoreByUserId(userId);
+          if (cachedScore !== null) {
+            rank = await getPlayerRankByUserId(userId);
+            score = cachedScore;
+          } else {
+            score = playerData.score;
+            rank = await getPlayerRankByUserId(playerData._id);
 
-          score = playerData.score;
-
-          rank = await getPlayerRankFromDb(playerData.score);
-
-          await setPlayerZScore(playerData.score,userId);
+            await addPlayerToLeaderboard(playerData.score,userId);
+          }
+        }
+        else{
+          return res.status(404).json({ message: 'User not found' });
         }
 
-        res.status(200).json({ userId, rank, score });
+        return res.status(200).json({ userId, rank, score });
     } catch (error) {
         next(error);
     }

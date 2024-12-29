@@ -1,12 +1,16 @@
 import { config } from 'dotenv';
 import bcrypt from 'bcrypt';
-import user from '../models/user.model.js';
+import {getUserByUsername} from '../services/user.service.js';
 import { getJwtToken } from '../helpers/jwt.helper.js';
 config();
 export async function login(req, res,next) {
     try{
-        const { userName, password } = req.body;
-        const existingUser = await user.findOne({ userName });
+        const { username, password } = req.body;
+        if(!username || !password){
+            return res.status(400).json({ error: 'Username and password are required' });
+        }
+
+        const existingUser = await getUserByUsername( username );
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found' });
         }
