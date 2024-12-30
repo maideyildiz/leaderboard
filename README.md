@@ -3,7 +3,8 @@
 ## Overview
 
 The Leaderboard project is a web application designed to manage and display a leaderboard for various games.
-It provides functionalities for user registration, login, and score submission, while efficiently handling data with caching and database integration.
+
+It provides user registration, login, and score submission functionalities while efficiently handling data with caching and database integration.
 
 ## Features
 
@@ -52,7 +53,7 @@ It provides functionalities for user registration, login, and score submission, 
 
 ### Running the Application
 
-The application will start running at `http://localhost:3000`. Ensure that Docker is running as it is required to start the MongoDB and Redis services.
+The application will start running at `http://localhost:3000`. Please ensure that Docker is running as it is required to start the MongoDB and Redis services.
 
 You can also access the application at [https://leaderboard-production-bfa1.up.railway.app/](https://leaderboard-production-bfa1.up.railway.app/).
 
@@ -70,8 +71,4 @@ A Postman collection for testing the API endpoints is available at [Leaderboard.
 
 ## License
 
-This project is licensed under the ISC License.
-
-## Contact
-
-For any questions or feedback, please open an issue on the [GitHub repository](https://github.com/maideyildiz/leaderboard/issues).
+This project is licensed under the MIT License.
